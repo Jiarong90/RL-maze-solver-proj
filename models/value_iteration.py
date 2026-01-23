@@ -23,7 +23,7 @@ class ValueIterationModel(AbstractModel):
         """Run value iteration until convergence."""
         discount = kwargs.get("discount", 0.90)
         theta = kwargs.get("theta", 1e-4)
-        max_iterations = max(kwargs.get("max_iterations", 1000), 1)
+        max_iterations = max(kwargs.get("max_iterations", 200), 1)
 
         start_time = datetime.now()
         iterations = 0

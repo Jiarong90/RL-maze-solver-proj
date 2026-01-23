@@ -1,5 +1,66 @@
 Note: originally forked from https://github.com/erikdelange/Reinforcement-Learning-Maze
 
+
+# RL-Maze-Solver for CSCI323 Modern AI Group Assignment
+
+Goal of this setup is to evaluate the different algorithms learning efficiency, and adaptability to dynamic maze setups. It is extended from https://github.com/erikdelange/Reinforcement-Learning-Maze.
+
+## Algorithms actually implemented/edited by us:
+- **Value Iteration (VI)** value_iteration.py - model-based algorithm  (Done by Calvin)
+- **Breadth-first search (BFS)** bfs.py - baseline to compute optimal steps for comparison
+- **Dyna-Q** dynaq.py - hybrid approach combining model-based & model-free, adapted from Reinforcement Learning: An Intro by Sutton & Barto (2015). (Done by Jia Rong)
+- **Dyna-Q+** dynaqplus.py - hybrid approach combining model-based & model-free with added time-based exploration bonus, adapted from Reinforcement Learning: An Intro by Sutton & Barto (2015). (Done by Jia Rong)
+- **Q-learning edited** qtable2comparison.py - edited Q-learning code so that metrics can be compared fairly with Dyna-Q (Done by Jia Rong)
+
+## Scenarios Tested
+- Static Maze (Q-Learning vs Dyna-Q) - baseline learning efficiency test for algorithms (Done by Jia Rong)
+- Dynamic Blocking Maze adapted from Sutton & Barto (2015) - to evaluate if algorithms can adapt when new obstacles block the optimal path (Done by Jia Rong)
+- Dynamic Shortcut Maze adapted from Sutton & Barto (2015) - to evaluate if algorithms can adapt when new shortcut appears(Done by Jia Rong)
+- Multi-Phase Dynamic Maze (combines essence of blocking and shortcut maze) - evaluate adaptability of algorithms to a continuous changing environment (Done by Jia Rong)
+
+## Environment Setup
+
+### Prerequisites 
+- Python version used: 3.10
+- IDE used: VSCode
+
+## Install dependencies
+pip install numpy matplotlib pandas
+
+# Run the experiments:
+
+All experiments are defined in main.py. To run the experiments, simply find the variable test = Test.MULTI_PHASE_TESTING in main.py and change the variable after 'Test.' to below named variables.
+
+1. Static Maze Experiment
+test = Test.DYNA_Q_VS_QL_STATIC
+
+2. Dynamic Blocking Maze (Q-Learning vs Dyna-Q)
+test = Test.DYNA_Q_VS_QL_DYNAMIC
+
+3. Dynamic Blocking Maze (Q-Learning vs Dyna-Q vs Dyna-Q+)
+test = Test.DYNA_Q_PLUS_BLOCKING
+
+4. Dynamic Shortcut Maze (Q-Learning vs Dyna-Q)
+test = Test.DYNA_Q_SHORTCUT
+
+5. Dynamic Shortcut Maze (Q-Learning vs Dyna-Q vs Dyna-Q+)
+test = Test.DYNA_Q_PLUS_SHORTCUT
+
+6. Multi-Phase Dynamic Maze (Q-Learning vs Dyna-Q vs Dyna-Q+)
+test = Test.MULTI_PHASE_TESTING
+
+Blocking and Shortcut maze (Maze B1, B2, S1, S2, S3 from the report) are defined in mazesetup.py. B1 = comparison_maze, B2 = comparison_maze_dynamic, S1-S3 = shortcut_maze1 - shortcut_maze3. (Designed by Jia Rong)
+
+## References
+Sutton, R. S., & Barto, A. G. (2015). Reinforcement Learning: An Introduction (2nd ed.).
+https://web.stanford.edu/class/psych209/Readings/SuttonBartoIPRLBook2ndEd.pdf
+
+
+
+
+
+
+
 ### Escape from a maze using reinforcement learning
 
 ##### Solving an optimization problem using an MDP and TD learning
@@ -22,11 +83,10 @@ This project demonstrates different models which learn to move through a maze. C
 ![Maze](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/bestmove.png)
 
 Package *models* contains the following models:
-1. *RandomModel* is the simplest model and just selects the next move randomly. It is [dumb all over](https://www.youtube.com/watch?v=DR_wf92A8E4) and learns nothing. You are lucky if you get to the exit using this model.
-2. *QTableModel* uses a table to record the value of each (state, action) pair. For a state the highest value indicates the most desirable action. These values are constantly refined during training. This is a fast way to learn a policy.
-3. *SarsaTableModel* uses a similar setup as the previous model, but takes less risk during learning (= on-policy learning).
-4. *QTableTraceModel* is an extension of the QTableModel. It speeds up learning by keeping track of previously visited state-action pairs, and updates their values as well although with a decaying rate.
-5. *SarsaTableTraceModel* is a variant of SarsaTableModel but adds an eligibility trace, just as QTableTraceModel. 
-6. *QReplayNetworkModel* is a simple neural network which learns the relation between a state and the corresponding values by replaying previous moves. It is significantly slower than all other models, and an overkill for a problem with such a small state space. As an extra feature after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from actual use. 
+1. *QTableModel* uses a table to record the value of each (state, action) pair. For a state the highest value indicates the most desirable action. These values are constantly refined during training. This is a fast way to learn a policy.
+2. *SarsaTableModel* uses a similar setup as the previous model, but takes less risk during learning (= on-policy learning).
+3. *QTableTraceModel* is an extension of the QTableModel. It speeds up learning by keeping track of previously visited state-action pairs, and updates their values as well although with a decaying rate.
+4. *SarsaTableTraceModel* is a variant of SarsaTableModel but adds an eligibility trace, just as QTableTraceModel. 
+5. *ValueIteration* repeatedly calculates V using the Bellman equation until convergence on the solution or it reaches a pre-determined number of iterations.
 
 Requires matplotlib, numpy, keras and tensorflow.

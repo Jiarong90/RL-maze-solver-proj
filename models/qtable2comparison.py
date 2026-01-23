@@ -8,6 +8,8 @@ from environment import Status
 from models import AbstractModel
 from models import bfs
 
+# This model is for Q-learning as well. However I have adjusted the convergence evaluation
+# check to include comparing against BFS steps ratio. 
 
 class QTable2CModel(AbstractModel):
     
@@ -50,7 +52,7 @@ class QTable2CModel(AbstractModel):
         episodes = max(kwargs.get("episodes", 1000), 1)
         check_convergence_every = kwargs.get("check_convergence_every", self.default_check_convergence_every)
         epsilon_min = 0.02
-
+        start_cell = kwargs.get("start_cell", (0, 0))
         # variables for reporting purposes
 
         cumulative_reward_history = []
@@ -70,10 +72,10 @@ class QTable2CModel(AbstractModel):
             greedy_count = 0
 
             # optimization: make sure to start from all possible cells
-            if not start_list:
-                start_list = self.environment.empty.copy()
-            start_cell = random.choice(start_list)
-            start_list.remove(start_cell)
+            # if not start_list:
+            #     start_list = self.environment.empty.copy()
+
+            # start_list.remove(start_cell)
 
             state = self.environment.reset(start_cell)
             state = tuple(state.flatten())  # change np.ndarray to tuple so it can be used as dictionary key
@@ -118,6 +120,49 @@ class QTable2CModel(AbstractModel):
             cumulative_reward_history.append(episode_reward)
             success = int(status == Status.WIN)
 
+            
+
+            logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
+                         .format(episode, episodes, status.name, exploration_rate))
+
+            avg_score = 0.0
+            bfs_len = 0.0
+            # if episode % check_convergence_every == 0:
+            #     # check if the current model does win from all starting cells
+            #     # only possible if there is a finite number of starting states
+            #     w_all, win_rate = self.environment.check_win_all(self)
+            #     total_score = 0
+            #     valid_cases = 0
+            #     # iterate through k number of samples
+            #     for start_cell in random.sample(self.environment.empty, k=min(10, len(self.environment.empty))):
+            #         # call bfs to find the optimal path
+            #         bfs_len = bfs.bfs_compute(self.environment, start_cell)
+            #         # goal not found, skip
+            #         if np.isinf(bfs_len):
+            #             continue 
+            #         steps_est = compute_path_length(self, self.environment, start_cell)
+            #         if np.isfinite(steps_est):
+            #             # find the score of model's prediction
+            #             score = bfs_len / steps_est
+            #             total_score += score
+            #             valid_cases += 1
+
+            #     if valid_cases > 0:
+            #         avg_score = total_score / valid_cases
+            #     else:
+            #         avg_score = 0.0
+
+            #     if avg_score > 0.9 and win_rate > 0.95 and stop_at_convergence:
+            #             break
+                
+            #     logging.info(f"episode {episode}: win_rate={win_rate:.2f}, optimality={avg_score:.2f}")
+            #     win_history.append((episode, win_rate))
+            #     if w_all is True and stop_at_convergence is True:
+            #         logging.info("won from all start cells, stop learning")
+            #         break
+
+            exploration_rate = max(epsilon_min, exploration_rate * exploration_decay)  # explore less as training progresses
+
             # Insert metrics
             metrics.append({
                 "episode": episode,
@@ -128,49 +173,11 @@ class QTable2CModel(AbstractModel):
                 "explore_count": explore_count,
                 "greedy_count": greedy_count,
                 "cumulative_steps": cumulative_steps,
-                # "max_q_delta": max_q_delta,  # optional
             })
 
-            logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
-                         .format(episode, episodes, status.name, exploration_rate))
-
-            if episode % check_convergence_every == 0:
-                # check if the current model does win from all starting cells
-                # only possible if there is a finite number of starting states
-                w_all, win_rate = self.environment.check_win_all(self)
-                total_score = 0
-                valid_cases = 0
-                # iterate through k number of samples
-                for start_cell in random.sample(self.environment.empty, k=min(10, len(self.environment.empty))):
-                    # call bfs to find the optimal path
-                    bfs_len = bfs.bfs_compute(self.environment, start_cell)
-                    # goal not found, skip
-                    if np.isinf(bfs_len):
-                        continue 
-                    steps_est = compute_path_length(self, self.environment, start_cell)
-                    if np.isfinite(steps_est):
-                        # find the score of model's prediction
-                        score = bfs_len / steps_est
-                        total_score += score
-                        valid_cases += 1
-
-                if valid_cases > 0:
-                    avg_score = total_score / valid_cases
-                else:
-                    avg_score = 0.0
-
-                if avg_score > 0.9 and win_rate > 0.95 and stop_at_convergence:
-                        break
-                
-                logging.info(f"episode {episode}: win_rate={win_rate:.2f}, optimality={avg_score:.2f}")
-                win_history.append((episode, win_rate))
-                if w_all is True and stop_at_convergence is True:
-                    logging.info("won from all start cells, stop learning")
-                    break
-
-            exploration_rate = max(epsilon_min, exploration_rate * exploration_decay)  # explore less as training progresses
-
         logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
+
+    
 
         return cumulative_reward_history, win_history, episode, datetime.now() - start_time, metrics
     

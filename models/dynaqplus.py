@@ -1,6 +1,7 @@
 import logging
 import random
 from datetime import datetime
+import math
 
 import numpy as np
 
@@ -8,7 +9,7 @@ from environment import Status
 from models import AbstractModel
 from models import bfs
 
-# The Dyna-Q Algorithm from Intro to RL by Richard Sutton
+# The Dyna-Q Algorithm from Intro to RL by Sutton & Barto
 # Initialize Q(s, a) and Model(s, a) for all s ∈ S and a ∈ A(s)
 # Do forever:
 # (a) S ← current (nonterminal) state
@@ -22,8 +23,12 @@ from models import bfs
 # R, S′ ← M odel(S, A)
 # Q(S, A) ← Q(S, A) + α[R + γ maxa Q(S′, a) − Q(S, A)
 
+# Dyna-Q+ described in Intro to RL by Sutton & Barto
+# Keep track of states' last visited #, introduce a small bonus R + κ√τ to its reward during simulation
 
-class DynaQModel(AbstractModel):
+
+
+class DynaQPlusModel(AbstractModel):
     
     """ Tabular Q-learning prediction model.
 
@@ -40,9 +45,11 @@ class DynaQModel(AbstractModel):
         :param class Maze game: Maze game object
         :param kwargs: model dependent init parameters
         """
-        super().__init__(game, name="DynaQModel", **kwargs)
+        super().__init__(game, name="DynaQPlusModel", **kwargs)
         self.Q = dict()  # table with value for (state, action) combination
         self.model = {} # I realized I was resetting dqModel with every train... initiate model here instead
+        self.lastVisited = {}
+        self.t = 0 # store global step counter instead of resetting every train
 
         
     def train(self, stop_at_convergence=False, **kwargs):
@@ -65,10 +72,13 @@ class DynaQModel(AbstractModel):
         episodes = max(kwargs.get("episodes", 1000), 1)
         check_convergence_every = kwargs.get("check_convergence_every", self.default_check_convergence_every)
         epsilon_min = 0.02
+        time_weight = kwargs.get("time_weight", 1e-3) # new parameter weight for time bonus
         start_cell = kwargs.get("start_cell", (0, 0))
 
         # for Dyna-Q model, store knowledge for learning
         dqModel = self.model
+        # for storing states' last visited num
+        lastVisited = self.lastVisited
         # number of planning iterations
         n_planning = kwargs.get("n_planning", 10)
         # variables for reporting purposes
@@ -92,7 +102,7 @@ class DynaQModel(AbstractModel):
             greedy_count = 0
             
 
-            # # optimization: make sure to start from all possible cells
+            # optimization: make sure to start from all possible cells
             # if not start_list:
             #     start_list = self.environment.empty.copy()
             # start_list.remove(start_cell)
@@ -134,6 +144,12 @@ class DynaQModel(AbstractModel):
                 # Start of Dyna-Q algorithm, add observed state and its reward, state transition
                 # into the Dyna-Q internal model
                 dqModel[(state,action)] = (next_state, reward, dqStatus)
+                
+                # Dyna-Q+ add-on --------
+                # Iterate global step count
+                self.t += 1
+                # When visited, set lastVisited to current global step count, meaning it was last visited on this step
+                lastVisited[(state,action)] = self.t
 
                 # Implement Dyna-Q's planning to simulate random experience
                 for _ in range(n_planning):
@@ -143,6 +159,13 @@ class DynaQModel(AbstractModel):
                     # sim_done = if that state reached terminal state (win, lose)
                     s, a = random.choice(list(dqModel.keys()))
                     next_s, sim_reward, sim_done = dqModel[(s, a)]
+
+                    # Dyna-Q+ add on, add the time bonus using the formula time_weight * sqrt last_visited value
+                    if (s, a) not in lastVisited:
+                        age = 0
+                    else:
+                        age = self.t - lastVisited[(s, a)]
+                    sim_reward += time_weight * math.sqrt(age)
 
                     # if terminal state, no further actions taken. no need to estimate next value
                     if sim_done:
@@ -172,13 +195,27 @@ class DynaQModel(AbstractModel):
             cumulative_reward_history.append(episode_reward)
             success = int(status == Status.WIN)
 
-            
+            # Store metrics
+            metrics.append({
+                "episode": episode,
+                "return_": episode_reward,
+                "steps": steps,
+                "success": success,
+                "epsilon": exploration_rate,
+                "explore_count": explore_count,
+                "n_planning": n_planning,
+                "greedy_count": greedy_count,
+                "planning_updates": planning_updates,
+                "cumulative_steps": cumulative_steps,
+                "cumulative_planning_steps": cumulative_planning,
+                "cumulative_total_updates": cumulative_steps + cumulative_planning,
+                "model_size": len({s for (s, _) in dqModel.keys()}), 
+                "replay_unique_states": len(replay_states)
+            })
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
                          .format(episode, episodes, status.name, exploration_rate))
 
-            # avg_score = 0.0
-            # bfs_len = 0.0
             # if episode % check_convergence_every == 0:
             #     # check if the current model does win from all starting cells
             #     # only possible if there is a finite number of starting states
@@ -219,26 +256,7 @@ class DynaQModel(AbstractModel):
 
             exploration_rate = max(epsilon_min, exploration_rate * exploration_decay)  # explore less as training progresses
 
-            # Store metrics
-            metrics.append({
-                "episode": episode,
-                "return_": episode_reward,
-                "steps": steps,
-                "success": success,
-                "epsilon": exploration_rate,
-                "explore_count": explore_count,
-                "n_planning": n_planning,
-                "greedy_count": greedy_count,
-                "planning_updates": planning_updates,
-                "cumulative_steps": cumulative_steps,
-                "cumulative_planning_steps": cumulative_planning,
-                "cumulative_total_updates": cumulative_steps + cumulative_planning,
-                "model_size": len({s for (s, _) in dqModel.keys()}), 
-                "replay_unique_states": len(replay_states)
-            })
         logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
-        if episode % 10 == 0:
-            print(f"model size: {len(self.model)}")
 
         return cumulative_reward_history, win_history, episode, datetime.now() - start_time, metrics
     
